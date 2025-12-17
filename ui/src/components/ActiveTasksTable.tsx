@@ -6,6 +6,7 @@ import Tooltip from "@material-ui/core/Tooltip";
 import CancelIcon from "@material-ui/icons/Cancel";
 import FileCopyOutlinedIcon from "@material-ui/icons/FileCopyOutlined";
 import MoreHorizIcon from "@material-ui/icons/MoreHoriz";
+import { makeStyles } from "@material-ui/core/styles";
 import React from "react";
 import { connect, ConnectedProps } from "react-redux";
 import { useHistory } from "react-router-dom";
@@ -19,7 +20,13 @@ import {
 import { taskDetailsPath } from "../paths";
 import { AppState } from "../store";
 import { TableColumn } from "../types/table";
-import { durationBefore, prettifyPayload, timeAgo, uuidPrefix } from "../utils";
+import {
+  durationBefore,
+  formatPayload,
+  FormattedPayload,
+  timeAgo,
+  uuidPrefix,
+} from "../utils";
 import SyntaxHighlighter from "./SyntaxHighlighter";
 import TasksTable, { RowProps, useRowStyles } from "./TasksTable";
 
@@ -53,6 +60,23 @@ const columns: TableColumn[] = [
   { key: "actions", label: "Actions", align: "center" },
 ];
 
+const useJsonCellStyles = makeStyles(() => ({
+  preview: {
+    maxHeight: 120,
+    overflow: "hidden",
+  },
+  tooltip: {
+    maxWidth: 960,
+    padding: 0,
+  },
+  tooltipContent: {
+    maxHeight: "70vh",
+    maxWidth: "80vw",
+    minWidth: 520,
+    overflow: "auto",
+  },
+}));
+
 const connector = connect(mapStateToProps, mapDispatchToProps);
 
 type ReduxProps = ConnectedProps<typeof connector>;
@@ -65,7 +89,57 @@ interface Props {
 function Row(props: RowProps) {
   const { task } = props;
   const classes = useRowStyles();
+  const jsonCellClasses = useJsonCellStyles();
   const history = useHistory();
+  const payload = React.useMemo(
+    () => formatPayload(task.payload),
+    [task.payload]
+  );
+  const previewStyle = React.useMemo(
+    () => ({
+      margin: 0,
+      maxWidth: 400,
+      fontSize: 14,
+      lineHeight: "1.6",
+    }),
+    []
+  );
+  const tooltipStyle = React.useMemo(
+    () => ({
+      margin: 0,
+      fontSize: 16,
+      lineHeight: "1.6",
+    }),
+    []
+  );
+  const renderPayloadCell = (payload: FormattedPayload) => (
+    <Tooltip
+      title={
+        <div className={jsonCellClasses.tooltipContent}>
+          <SyntaxHighlighter
+            language={payload.language}
+            customStyle={tooltipStyle}
+            wrapLongLines={false}
+          >
+            {payload.text}
+          </SyntaxHighlighter>
+        </div>
+      }
+      interactive
+      classes={{ tooltip: jsonCellClasses.tooltip }}
+      enterDelay={200}
+    >
+      <div className={jsonCellClasses.preview}>
+        <SyntaxHighlighter
+          language={payload.language}
+          customStyle={previewStyle}
+          wrapLongLines={false}
+        >
+          {payload.text}
+        </SyntaxHighlighter>
+      </div>
+    </Tooltip>
+  );
   return (
     <TableRow
       key={task.id}
@@ -104,12 +178,7 @@ function Row(props: RowProps) {
       </TableCell>
       <TableCell>{task.type}</TableCell>
       <TableCell>
-        <SyntaxHighlighter
-          language="json"
-          customStyle={{ margin: 0, maxWidth: 400 }}
-        >
-          {prettifyPayload(task.payload)}
-        </SyntaxHighlighter>
+        {renderPayloadCell(payload)}
       </TableCell>
       <TableCell>
         {task.canceling

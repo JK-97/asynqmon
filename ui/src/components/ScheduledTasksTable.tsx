@@ -11,6 +11,7 @@ import DeleteIcon from "@material-ui/icons/Delete";
 import ArchiveIcon from "@material-ui/icons/Archive";
 import MoreHorizIcon from "@material-ui/icons/MoreHoriz";
 import PlayArrowIcon from "@material-ui/icons/PlayArrow";
+import { makeStyles } from "@material-ui/core/styles";
 import SyntaxHighlighter from "./SyntaxHighlighter";
 import TasksTable, { RowProps, useRowStyles } from "./TasksTable";
 import {
@@ -28,7 +29,7 @@ import {
 import { taskRowsPerPageChange } from "../actions/settingsActions";
 import { AppState } from "../store";
 import { TableColumn } from "../types/table";
-import { durationBefore, prettifyPayload, uuidPrefix } from "../utils";
+import { durationBefore, formatPayload, FormattedPayload, uuidPrefix } from "../utils";
 import { taskDetailsPath } from "../paths";
 
 function mapStateToProps(state: AppState) {
@@ -74,10 +75,77 @@ const columns: TableColumn[] = [
   { key: "actions", label: "Actions", align: "center" },
 ];
 
+const useJsonCellStyles = makeStyles(() => ({
+  preview: {
+    maxHeight: 120,
+    overflow: "hidden",
+  },
+  tooltip: {
+    maxWidth: 960,
+    padding: 0,
+  },
+  tooltipContent: {
+    maxHeight: "70vh",
+    maxWidth: "80vw",
+    minWidth: 520,
+    overflow: "auto",
+  },
+}));
+
 function Row(props: RowProps) {
   const { task } = props;
   const classes = useRowStyles();
+  const jsonCellClasses = useJsonCellStyles();
   const history = useHistory();
+  const payload = React.useMemo(
+    () => formatPayload(task.payload),
+    [task.payload]
+  );
+  const previewStyle = React.useMemo(
+    () => ({
+      margin: 0,
+      maxWidth: 400,
+      fontSize: 14,
+      lineHeight: "1.6",
+    }),
+    []
+  );
+  const tooltipStyle = React.useMemo(
+    () => ({
+      margin: 0,
+      fontSize: 16,
+      lineHeight: "1.6",
+    }),
+    []
+  );
+  const renderPayloadCell = (payload: FormattedPayload) => (
+    <Tooltip
+      title={
+        <div className={jsonCellClasses.tooltipContent}>
+          <SyntaxHighlighter
+            language={payload.language}
+            customStyle={tooltipStyle}
+            wrapLongLines={false}
+          >
+            {payload.text}
+          </SyntaxHighlighter>
+        </div>
+      }
+      interactive
+      classes={{ tooltip: jsonCellClasses.tooltip }}
+      enterDelay={200}
+    >
+      <div className={jsonCellClasses.preview}>
+        <SyntaxHighlighter
+          language={payload.language}
+          customStyle={previewStyle}
+          wrapLongLines={false}
+        >
+          {payload.text}
+        </SyntaxHighlighter>
+      </div>
+    </Tooltip>
+  );
   return (
     <TableRow
       key={task.id}
@@ -116,12 +184,7 @@ function Row(props: RowProps) {
       </TableCell>
       <TableCell>{task.type}</TableCell>
       <TableCell>
-        <SyntaxHighlighter
-          language="json"
-          customStyle={{ margin: 0, maxWidth: 400 }}
-        >
-          {prettifyPayload(task.payload)}
-        </SyntaxHighlighter>
+        {renderPayloadCell(payload)}
       </TableCell>
       <TableCell>{durationBefore(task.next_process_at)}</TableCell>
       {!window.READ_ONLY && (

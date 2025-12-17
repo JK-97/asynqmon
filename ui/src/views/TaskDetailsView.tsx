@@ -18,7 +18,12 @@ import { TaskDetailsRouteParams } from "../paths";
 import { usePolling } from "../hooks";
 import { listQueuesAsync } from "../actions/queuesActions";
 import SyntaxHighlighter from "../components/SyntaxHighlighter";
-import { durationFromSeconds, stringifyDuration, timeAgo, prettifyPayload } from "../utils";
+import {
+  durationFromSeconds,
+  formatPayload,
+  stringifyDuration,
+  timeAgo,
+} from "../utils";
 
 function mapStateToProps(state: AppState) {
   return {
@@ -74,6 +79,14 @@ function TaskDetailsView(props: Props) {
   const { qname, taskId } = useParams<TaskDetailsRouteParams>();
   const { getTaskInfoAsync, pollInterval, listQueuesAsync, taskInfo } = props;
   const history = useHistory();
+  const payloadDisplay = useMemo(
+    () => formatPayload(taskInfo?.payload ?? ""),
+    [taskInfo?.payload]
+  );
+  const resultDisplay = useMemo(
+    () => formatPayload(taskInfo?.result ?? ""),
+    [taskInfo?.result]
+  );
 
   const fetchTaskInfo = useMemo(() => {
     return () => {
@@ -225,10 +238,10 @@ function TaskDetailsView(props: Props) {
                 <div className={classes.infoValueCell}>
                   {taskInfo?.payload && (
                     <SyntaxHighlighter
-                      language="json"
+                      language={payloadDisplay.language}
                       customStyle={{ margin: 0, maxWidth: 400 }}
                     >
-                      {prettifyPayload(taskInfo.payload)}
+                      {payloadDisplay.text}
                     </SyntaxHighlighter>
                   )}
                 </div>
@@ -259,10 +272,10 @@ function TaskDetailsView(props: Props) {
                       </Typography>
                       <div className={classes.infoValueCell}>
                         <SyntaxHighlighter
-                          language="json"
+                          language={resultDisplay.language}
                           customStyle={{ margin: 0, maxWidth: 400 }}
                         >
-                          {prettifyPayload(taskInfo.result)}
+                          {resultDisplay.text}
                         </SyntaxHighlighter>
                       </div>
                     </div>

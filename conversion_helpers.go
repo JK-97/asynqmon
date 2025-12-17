@@ -65,8 +65,13 @@ func isPrintable(data []byte) bool {
 	}
 	isAllSpace := true
 	for _, r := range string(data) {
-		if !unicode.IsPrint(r) {
-			return false
+		switch r {
+		case '\n', '\r', '\t':
+			// allow common control whitespace so multi-line payloads remain printable
+		default:
+			if !unicode.IsPrint(r) {
+				return false
+			}
 		}
 		if !unicode.IsSpace(r) {
 			isAllSpace = false

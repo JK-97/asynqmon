@@ -107,20 +107,116 @@ export function percentage(numerator: number, denominator: number): string {
   return `${perc} %`;
 }
 
-export function isJsonPayload(p: string) {
+function tryParseJson(p: string): unknown | null {
   try {
-    JSON.parse(p);
+    return JSON.parse(p);
   } catch (error) {
+    return null;
+  }
+}
+
+export function isJsonPayload(p: string) {
+  return tryParseJson(p) !== null;
+}
+
+function formatXml(input: string): string {
+  const compact = input.replace(/\r\n/g, "\n").replace(/>\s+</g, "><").trim();
+  if (compact === "") {
+    return "";
+  }
+
+  const lines = compact.replace(/(>)(<)(\/*)/g, "$1\n$2$3").split("\n");
+  const formatted: string[] = [];
+  let indentLevel = 0;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line === "") {
+      continue;
+    }
+
+    const isClosingTag = /^<\/[^>]+>/.test(line);
+    const isSelfClosingTag =
+      /^<[^>]+\/>/.test(line) ||
+      /^<\?.+\?>$/.test(line) ||
+      /^<!\[CDATA\[/.test(line) ||
+      /^<!--/.test(line) ||
+      /-->$/.test(line) ||
+      /^<[^>]+>[^<]*<\/[^>]+>$/.test(line);
+    const isOpeningTag =
+      /^<[^!?/][^>]*>/.test(line) && !isClosingTag && !isSelfClosingTag;
+
+    if (isClosingTag && !isSelfClosingTag) {
+      indentLevel = Math.max(indentLevel - 1, 0);
+    }
+
+    const indentation = "  ".repeat(indentLevel);
+    formatted.push(`${indentation}${line}`);
+
+    if (isOpeningTag && !isSelfClosingTag) {
+      indentLevel += 1;
+    }
+  }
+
+  return formatted.join("\n");
+}
+
+export function isXmlPayload(p: string): boolean {
+  const trimmed = p.trim();
+  if (trimmed === "") {
     return false;
   }
-  return true;
+
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(trimmed, "application/xml");
+      const parserErrors = doc.getElementsByTagName("parsererror");
+      return parserErrors.length === 0;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Fallback heuristic when DOMParser is unavailable (e.g. tests, SSR)
+  return (
+    /^<[^>]+>/.test(trimmed) &&
+    (/<\/[^>]+>$/.test(trimmed) || /\/>$/.test(trimmed))
+  );
+}
+
+export type PayloadLanguage = "json" | "xml" | "plaintext";
+
+export interface FormattedPayload {
+  text: string;
+  language: PayloadLanguage;
+}
+
+export function formatPayload(p: string): FormattedPayload {
+  const trimmed = p.trim();
+  const jsonValue = tryParseJson(trimmed);
+  if (jsonValue !== null) {
+    return {
+      text: JSON.stringify(jsonValue, null, 2),
+      language: "json",
+    };
+  }
+
+  if (isXmlPayload(trimmed)) {
+    return {
+      text: formatXml(trimmed),
+      language: "xml",
+    };
+  }
+
+  return {
+    text: p,
+    language: "plaintext",
+  };
 }
 
 export function prettifyPayload(p: string) {
-  if (isJsonPayload(p)) {
-    return JSON.stringify(JSON.parse(p), null, 2);
-  }
-  return p;
+  return formatPayload(p).text;
 }
 
 // Returns the number of seconds elapsed since January 1, 1970 00:00:00 UTC.

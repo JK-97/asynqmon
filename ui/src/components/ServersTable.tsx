@@ -21,7 +21,7 @@ import AlertTitle from "@material-ui/lab/AlertTitle";
 import SyntaxHighlighter from "./SyntaxHighlighter";
 import { ServerInfo } from "../api";
 import { SortDirection, SortableTableColumn } from "../types/table";
-import { timeAgo, uuidPrefix, prettifyPayload } from "../utils";
+import { timeAgo, uuidPrefix, formatPayload } from "../utils";
 import { queueDetailsPath } from "../paths";
 import Typography from "@material-ui/core/Typography";
 
@@ -272,23 +272,26 @@ function Row(props: RowProps) {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {server.active_workers.map((worker) => (
-                      <TableRow key={worker.task_id}>
-                        <TableCell component="th" scope="row">
-                          {uuidPrefix(worker.task_id)}
-                        </TableCell>
-                        <TableCell>
-                          <SyntaxHighlighter
-                            language="json"
-                            customStyle={{ margin: 0 }}
-                          >
-                            {prettifyPayload(worker.task_payload)}
-                          </SyntaxHighlighter>
-                        </TableCell>
-                        <TableCell>{worker.queue}</TableCell>
-                        <TableCell>{timeAgo(worker.start_time)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {server.active_workers.map((worker) => {
+                      const workerPayload = formatPayload(worker.task_payload);
+                      return (
+                        <TableRow key={worker.task_id}>
+                          <TableCell component="th" scope="row">
+                            {uuidPrefix(worker.task_id)}
+                          </TableCell>
+                          <TableCell>
+                            <SyntaxHighlighter
+                              language={workerPayload.language}
+                              customStyle={{ margin: 0 }}
+                            >
+                              {workerPayload.text}
+                            </SyntaxHighlighter>
+                          </TableCell>
+                          <TableCell>{worker.queue}</TableCell>
+                          <TableCell>{timeAgo(worker.start_time)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </Grid>
